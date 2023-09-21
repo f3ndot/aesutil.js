@@ -44,17 +44,24 @@ const getRandomIV = () => {
  * @param associatedData - The specific associated data to optionally tie to ciphertext (AEAD)
  * @returns The encrypted value with cipher IV and auth tag.
  */
-export const encryptValue = (value: string, associatedData?: string) => {
-  const iv = getRandomIV();
+export const encryptValue = (
+  value: string,
+  associatedData?: string,
+  iv?: Buffer
+) => {
+  const _iv = iv || getRandomIV();
+  if (_iv.byteLength != IV_BYTE_LEN) {
+    throw new Error(`IV must be ${IV_BYTE_LEN} bytes long`);
+  }
   const key = getCipherKey();
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, _iv);
   if (associatedData) {
     cipher.setAAD(Buffer.from(associatedData));
   }
   const encrypted =
     cipher.update(value, "utf8", "base64") + cipher.final("base64");
   const authTagString = cipher.getAuthTag().toString("base64");
-  return `${iv.toString("base64")}.${authTagString}.${encrypted}`;
+  return `${_iv.toString("base64")}.${authTagString}.${encrypted}`;
 };
 
 /**

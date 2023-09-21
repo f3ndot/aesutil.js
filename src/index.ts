@@ -1,1 +1,6 @@
-export { encryptValue, decryptValue } from "./aesutil";
+import { encryptValue, decryptValue } from "./aesutil";
+
+export default {
+  encryptValue,
+  decryptValue,
+};
