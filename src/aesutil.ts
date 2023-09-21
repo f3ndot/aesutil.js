@@ -51,33 +51,40 @@ const getIv = (providedIv?: string | Buffer) => {
 /**
  * Returns the provided encrypted value.
  *
+ * Optionally provide a `key` encryption key otherwise `AESUTIL_JS_AES_ENCRYPTION_KEY` env is used
+ *
  * @param value - The value to encrypt.
  * @param associatedData - The specific associated data to optionally tie to ciphertext (AEAD)
+ * @param key - An encryption key as a byte array or a Base64-encoded string
+ * @param _iv - For testing only: IV bytes to use
  * @returns The encrypted value with cipher IV and auth tag.
  */
 export const encryptValue = (
   value: string,
   associatedData?: string,
   key?: Buffer | string,
-  iv?: Buffer | string
+  _iv?: Buffer | string
 ) => {
-  const _iv = getIv(iv);
+  const iv = getIv(_iv);
   const _key = getCipherKey(key);
-  const cipher = crypto.createCipheriv(ALGORITHM, _key, _iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, _key, iv);
   if (associatedData) {
     cipher.setAAD(Buffer.from(associatedData));
   }
   const encrypted =
     cipher.update(value, "utf8", "base64") + cipher.final("base64");
   const authTagString = cipher.getAuthTag().toString("base64");
-  return `${_iv.toString("base64")}.${authTagString}.${encrypted}`;
+  return `${iv.toString("base64")}.${authTagString}.${encrypted}`;
 };
 
 /**
  * Returns the provided decrypted value.
  *
+ * Optionally provide a `key` encryption key otherwise `AESUTIL_JS_AES_ENCRYPTION_KEY` env is used
+ *
  * @param value - The value to decrypt.
  * @param associatedData - The associated data tied to ciphertext (if supplied during encryption)
+ * @param key - The encryption key used as a byte array or a Base64-encoded string
  * @returns The decrypted value.
  */
 export const decryptValue = (
