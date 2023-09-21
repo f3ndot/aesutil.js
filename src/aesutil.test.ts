@@ -10,7 +10,7 @@ describe("aesutil.js Tests", () => {
     test("encrypts correctly", () => {
       const ivBytes = Buffer.from("a".repeat(12));
 
-      const actual = encryptValue("some secret", undefined, ivBytes);
+      const actual = encryptValue("some secret", undefined, undefined, ivBytes);
       expect(actual).toBe(
         "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
       );
@@ -19,7 +19,7 @@ describe("aesutil.js Tests", () => {
     test("output is formatted correctly", () => {
       const ivBytes = Buffer.from("a".repeat(12));
 
-      const actual = encryptValue("hi", undefined, ivBytes);
+      const actual = encryptValue("hi", undefined, undefined, ivBytes);
       const [ivString, authTagString, cipherTextString] = actual.split(".");
       expect(Buffer.from(ivString, "base64").toString()).toBe(
         ivBytes.toString()
@@ -35,7 +35,12 @@ describe("aesutil.js Tests", () => {
     test("encrypts with associated data", () => {
       const ivBytes = Buffer.from("a".repeat(12));
 
-      const actual = encryptValue("some secret", "with assoc data", ivBytes);
+      const actual = encryptValue(
+        "some secret",
+        "with assoc data",
+        undefined,
+        ivBytes
+      );
       expect(actual).toMatch(
         "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY="
       );

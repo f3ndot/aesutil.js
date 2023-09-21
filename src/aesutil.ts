@@ -58,8 +58,8 @@ const getIv = (providedIv?: string | Buffer) => {
 export const encryptValue = (
   value: string,
   associatedData?: string,
-  iv?: Buffer | string,
-  key?: Buffer | string
+  key?: Buffer | string,
+  iv?: Buffer | string
 ) => {
   const _iv = getIv(iv);
   const _key = getCipherKey(key);
