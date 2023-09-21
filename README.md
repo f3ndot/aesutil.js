@@ -79,11 +79,11 @@ const user2History = decryptValue(encryptedDataForUser1FromDb, "user-id-2"); // 
 
 ## Opinionated Decision Rationale
 
-### Why is resulting output a string some Base64 with dots?
+### Why is resulting output a string with some Base64 and dots?
 
-Since the ciphertext, its IV, and auth tag are all encoded as Base64 strings smushed together, the resulting string is very portable and versatile. It can reasonably be copied around and transported anywhere. This can be useful in situations where binary data/non-ASCII characters would get mangled.
+Since the ciphertext, its IV, and auth tag are all encoded as Base64 strings smushed together, the resulting string is very portable and versatile. It can reasonably be copied around and transported anywhere. This can be useful in situations where binary data/non-ASCII characters would get mangled. Hex encoding could've been chosen and accomplishes the same job, but it takes up more characters.
 
-While SQL databases have the `BINARY` type, the additional overhead for storing the string as `TEXT` is small and consistency makes developer error less likely. Ditto for storing IV and auth tag alongside, delimited by dots. While one could put those in separate `BINARY` columns, it's just more work.
+And while SQL databases have the `BINARY` type, the additional overhead for storing the string as `TEXT` is small and consistency makes developer error less likely. Ditto for storing IV and auth tag alongside. While those could be stored in separate `BINARY` columns, it's just more work.
 
 ### Why AES-256-GCM?
 
