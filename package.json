@@ -10,9 +10,9 @@
   ],
   "scripts": {
     "test": "jest",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublish": "yarn build"
   },
-  "prepublish": "tsc",
   "author": "Justin Bull <me@justinbull.ca>",
   "license": "MIT",
   "devDependencies": {
