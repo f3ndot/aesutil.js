@@ -1,0 +1,18 @@
+{
+  "name": "@f3ndot/aesutil",
+  "version": "0.1.0",
+  "description": "An opinionated NodeJS convenience library for AES-256-GCM Encryption/Decryption with optional Additional Data (AAD/AEAD) in a portable way",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "repository": "git@github.com:f3ndot/aesutil.js.git",
+  "author": "Justin Bull <me@justinbull.ca>",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^20.6.3",
+    "typescript": "^5.2.2"
+  }
+}
