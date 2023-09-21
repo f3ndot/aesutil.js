@@ -6,35 +6,46 @@ export const AESUTIL_JS_AES_ENCRYPTION_KEY =
   process.env.AESUTIL_JS_AES_ENCRYPTION_KEY;
 export const KEY_BYTE_LEN = 32; // 256-bit means a 32 byte key
 
-const getCipherKey = () => {
-  if (!AESUTIL_JS_AES_ENCRYPTION_KEY) {
+const base64RegEx = new RegExp(/^[a-zA-Z0-9+/=]+$/);
+
+const getCipherKey = (providedKey?: string | Buffer) => {
+  const keyCandidate = providedKey || AESUTIL_JS_AES_ENCRYPTION_KEY;
+  let keyBytes: Buffer;
+
+  if (!keyCandidate) {
     throw new Error(
-      "AESUTIL_JS_AES_ENCRYPTION_KEY environment variable not set"
+      "Key not provided and AESUTIL_JS_AES_ENCRYPTION_KEY environment variable not set"
     );
   }
-  const expectedBase64Length = Buffer.from("a".repeat(KEY_BYTE_LEN)).toString(
-    "base64"
-  ).length;
-  if (
-    !new RegExp(`^[a-zA-Z0-9+/=]{${expectedBase64Length}}$`, "g").test(
-      AESUTIL_JS_AES_ENCRYPTION_KEY
-    )
-  ) {
-    throw new Error(
-      `AESUTIL_JS_AES_ENCRYPTION_KEY must be a Base64-encoded ${KEY_BYTE_LEN}-byte string`
-    );
+
+  if (typeof keyCandidate === "string") {
+    if (!base64RegEx.test(keyCandidate)) {
+      throw new Error(`Key must be a Base64-encoded string`);
+    }
+
+    keyBytes = Buffer.from(keyCandidate, "base64");
+  } else {
+    keyBytes = keyCandidate;
   }
-  const keyBytes = Buffer.from(AESUTIL_JS_AES_ENCRYPTION_KEY, "base64");
+
   if (keyBytes.length !== KEY_BYTE_LEN) {
-    throw new Error(
-      `AESUTIL_JS_AES_ENCRYPTION_KEY must contain ${KEY_BYTE_LEN} bytes when Base64-decoded`
-    );
+    throw new Error(`Key must be ${KEY_BYTE_LEN} bytes when Base64-decoded`);
   }
+
   return keyBytes;
 };
 
-const getRandomIV = () => {
-  return crypto.randomBytes(IV_BYTE_LEN);
+const getIv = (providedIv?: string | Buffer) => {
+  if (typeof providedIv === "string") {
+    if (!base64RegEx.test(providedIv)) {
+      throw new Error(`Provided IV must be Base64-encoded if string`);
+    }
+    providedIv = Buffer.from(providedIv, "base64");
+  }
+  if (providedIv && providedIv.byteLength != IV_BYTE_LEN) {
+    throw new Error(`Provided IV must be ${IV_BYTE_LEN} bytes long`);
+  }
+  return providedIv || crypto.randomBytes(IV_BYTE_LEN);
 };
 
 /**
@@ -47,14 +58,12 @@ const getRandomIV = () => {
 export const encryptValue = (
   value: string,
   associatedData?: string,
-  iv?: Buffer
+  iv?: Buffer | string,
+  key?: Buffer | string
 ) => {
-  const _iv = iv || getRandomIV();
-  if (_iv.byteLength != IV_BYTE_LEN) {
-    throw new Error(`IV must be ${IV_BYTE_LEN} bytes long`);
-  }
-  const key = getCipherKey();
-  const cipher = crypto.createCipheriv(ALGORITHM, key, _iv);
+  const _iv = getIv(iv);
+  const _key = getCipherKey(key);
+  const cipher = crypto.createCipheriv(ALGORITHM, _key, _iv);
   if (associatedData) {
     cipher.setAAD(Buffer.from(associatedData));
   }
@@ -71,13 +80,17 @@ export const encryptValue = (
  * @param associatedData - The associated data tied to ciphertext (if supplied during encryption)
  * @returns The decrypted value.
  */
-export const decryptValue = (value: string, associatedData?: string) => {
+export const decryptValue = (
+  value: string,
+  associatedData?: string,
+  key?: Buffer | string
+) => {
   const [ivString, authTagString, ciphertextString] = value.split(".");
 
   const iv = Buffer.from(ivString, "base64");
   const authTag = Buffer.from(authTagString, "base64");
-  const key = getCipherKey();
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  const _key = getCipherKey(key);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", _key, iv);
   decipher.setAuthTag(authTag);
   if (associatedData) {
     decipher.setAAD(Buffer.from(associatedData));

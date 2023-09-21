@@ -50,14 +50,14 @@ describe("aesutil.js Tests", () => {
       expect(actual).toBe("some secret");
     });
 
-    xtest("throws if wrong key", () => {
-      jest.resetModules();
+    test("throws if wrong key", () => {
       const enc_key = Buffer.from("b".repeat(32)).toString("base64");
-      process.env = { AESUTIL_JS_AES_ENCRYPTION_KEY: enc_key };
 
       expect(() =>
         decryptValue(
-          "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
+          "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY=",
+          undefined,
+          enc_key
         )
       ).toThrowError(Error("Unsupported state or unable to authenticate data"));
     });
