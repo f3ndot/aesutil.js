@@ -118,3 +118,7 @@ Guarantees encrypted data for a particular row cannot be reused in other rows. C
 ### Why not streams?
 
 Because I don't have a use case for large inputs/outputs yet. PR's welcome 😌
+
+## License
+
+Copyright (c) 2023 Justin Bull under the [MIT License](./LICENSE)

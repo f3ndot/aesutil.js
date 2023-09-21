@@ -9,7 +9,8 @@
     "/dist"
   ],
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc"
   },
   "prepublish": "tsc",
   "author": "Justin Bull <me@justinbull.ca>",
