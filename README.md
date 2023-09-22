@@ -24,6 +24,8 @@ Save that in your env whichever way you like, for example a `.env` file if your 
 AESUTIL_JS_AES_ENCRYPTION_KEY="uQDJyFHpG7qKPZgGhC/74eIWx/ItMof+T00Tho2Cam8="
 ```
 
+Alternatively you don't have to set an environment variable and always pass in a key using the `AesUtil` approach described in Usage.
+
 ## Usage
 
 Very simple. You can use the simple functional methods, or the class for more configurability:
