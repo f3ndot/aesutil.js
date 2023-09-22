@@ -1,6 +1,6 @@
 import crypto from "crypto";
+import type { CiphertextParts } from "./types";
 
-export const ALGORITHM = "aes-256-gcm";
 export const IV_BYTE_LEN = 12; // per NIST 800-38D
 export const AESUTIL_JS_AES_ENCRYPTION_KEY =
   process.env.AESUTIL_JS_AES_ENCRYPTION_KEY;
@@ -35,74 +35,93 @@ const getCipherKey = (providedKey?: string | Buffer) => {
   return keyBytes;
 };
 
-const getIv = (providedIv?: string | Buffer) => {
-  if (typeof providedIv === "string") {
-    if (!base64RegEx.test(providedIv)) {
-      throw new Error(`Provided IV must be Base64-encoded if string`);
+export class AesUtil {
+  readonly algorithm = "aes-256-gcm";
+
+  readonly key: Buffer;
+
+  constructor();
+  constructor(providedKey: string | Buffer);
+  constructor(providedKey?: string | Buffer) {
+    this.key = getCipherKey(providedKey);
+  }
+
+  static getIv(): Buffer {
+    return crypto.randomBytes(IV_BYTE_LEN);
+  }
+
+  /**
+   * Returns the provided encrypted value.
+   *
+   * @param plaintext - The string to encrypt.
+   * @param associatedData - The specific associated data to optionally tie to ciphertext (AEAD)
+   * @returns The encrypted value with cipher IV and auth tag.
+   */
+  encrypt(plaintext: string, associatedData?: string): string {
+    const iv = AesUtil.getIv();
+    const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+    if (associatedData) {
+      cipher.setAAD(Buffer.from(associatedData));
     }
-    providedIv = Buffer.from(providedIv, "base64");
+    const ciphertext = Buffer.concat([
+      cipher.update(plaintext, "utf8"),
+      cipher.final(),
+    ]);
+    const authTag = cipher.getAuthTag();
+    return this.encodeOutput({ ciphertext, iv, authTag });
   }
-  if (providedIv && providedIv.byteLength != IV_BYTE_LEN) {
-    throw new Error(`Provided IV must be ${IV_BYTE_LEN} bytes long`);
-  }
-  return providedIv || crypto.randomBytes(IV_BYTE_LEN);
-};
 
-/**
- * Returns the provided encrypted value.
- *
- * Optionally provide a `key` encryption key otherwise `AESUTIL_JS_AES_ENCRYPTION_KEY` env is used
- *
- * @param value - The value to encrypt.
- * @param associatedData - The specific associated data to optionally tie to ciphertext (AEAD)
- * @param key - An encryption key as a byte array or a Base64-encoded string
- * @param _iv - For testing only: IV bytes to use
- * @returns The encrypted value with cipher IV and auth tag.
- */
-export const encryptValue = (
-  value: string,
-  associatedData?: string,
-  key?: Buffer | string,
-  _iv?: Buffer | string
-) => {
-  const iv = getIv(_iv);
-  const _key = getCipherKey(key);
-  const cipher = crypto.createCipheriv(ALGORITHM, _key, iv);
-  if (associatedData) {
-    cipher.setAAD(Buffer.from(associatedData));
-  }
-  const encrypted =
-    cipher.update(value, "utf8", "base64") + cipher.final("base64");
-  const authTagString = cipher.getAuthTag().toString("base64");
-  return `${iv.toString("base64")}.${authTagString}.${encrypted}`;
-};
+  /**
+   * Returns the provided decrypted value.
+   *
+   * Optionally provide a `key` encryption key otherwise `AESUTIL_JS_AES_ENCRYPTION_KEY` env is used
+   *
+   * @param value - The value to decrypt.
+   * @param associatedData - The associated data tied to ciphertext (if supplied during encryption)
+   * @param key - The encryption key used as a byte array or a Base64-encoded string
+   * @returns The decrypted value.
+   */
+  decrypt(encrypted: string, associatedData?: string): string {
+    const parts = this.decodeInput(encrypted);
 
-/**
- * Returns the provided decrypted value.
- *
- * Optionally provide a `key` encryption key otherwise `AESUTIL_JS_AES_ENCRYPTION_KEY` env is used
- *
- * @param value - The value to decrypt.
- * @param associatedData - The associated data tied to ciphertext (if supplied during encryption)
- * @param key - The encryption key used as a byte array or a Base64-encoded string
- * @returns The decrypted value.
- */
+    const decipher = crypto.createDecipheriv("aes-256-gcm", this.key, parts.iv);
+    decipher.setAuthTag(parts.authTag);
+    if (associatedData) {
+      decipher.setAAD(Buffer.from(associatedData));
+    }
+    return (
+      decipher.update(parts.ciphertext, undefined, "utf8") +
+      decipher.final("utf8")
+    );
+  }
+
+  private encodeOutput(parts: CiphertextParts): string {
+    return `${parts.iv.toString("base64")}.${parts.authTag.toString(
+      "base64"
+    )}.${parts.ciphertext.toString("base64")}`;
+  }
+
+  private decodeInput(encrypted: string): CiphertextParts {
+    const [ivString, authTagString, ciphertextString] = encrypted.split(".");
+    const iv = Buffer.from(ivString, "base64");
+    const authTag = Buffer.from(authTagString, "base64");
+    const ciphertext = Buffer.from(ciphertextString, "base64");
+    return {
+      iv,
+      authTag,
+      ciphertext,
+    };
+  }
+}
+
 export const decryptValue = (
   value: string,
   associatedData?: string,
   key?: Buffer | string
-) => {
-  const [ivString, authTagString, ciphertextString] = value.split(".");
+) => (key ? new AesUtil(key) : new AesUtil()).decrypt(value, associatedData);
 
-  const iv = Buffer.from(ivString, "base64");
-  const authTag = Buffer.from(authTagString, "base64");
-  const _key = getCipherKey(key);
-  const decipher = crypto.createDecipheriv("aes-256-gcm", _key, iv);
-  decipher.setAuthTag(authTag);
-  if (associatedData) {
-    decipher.setAAD(Buffer.from(associatedData));
-  }
-  return (
-    decipher.update(ciphertextString, "base64", "utf8") + decipher.final("utf8")
-  );
-};
+export const encryptValue = (
+  value: string,
+  associatedData?: string,
+  key?: Buffer | string
+) => (key ? new AesUtil(key) : new AesUtil()).encrypt(value, associatedData);

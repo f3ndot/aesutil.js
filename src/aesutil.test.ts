@@ -1,16 +1,129 @@
 import { describe, expect, test } from "@jest/globals";
-import { encryptValue, decryptValue } from "./aesutil";
+import { AesUtil, encryptValue, decryptValue } from "./aesutil";
 
-describe("aesutil.js Tests", () => {
-  test("decrypting encrypted output returns original input", () => {
-    expect(decryptValue(encryptValue("some secret"))).toBe("some secret");
+describe("encryptValue", () => {
+  const aesUtil = new AesUtil();
+
+  beforeAll(() => {
+    const ivBytes = Buffer.from("a".repeat(12));
+    const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
   });
 
-  describe("encryptValue", () => {
-    test("encrypts correctly", () => {
-      const ivBytes = Buffer.from("a".repeat(12));
+  afterAll(() => jest.restoreAllMocks());
 
-      const actual = encryptValue("some secret", undefined, undefined, ivBytes);
+  test("calls new AesUtil().encrypt(input) when no key", () => {
+    expect(encryptValue("foo")).toBe(new AesUtil().encrypt("foo"));
+  });
+
+  test("calls new AesUtil().encrypt(input, associatedData) when assoc data", () => {
+    expect(encryptValue("foo", "bar")).toBe(
+      new AesUtil().encrypt("foo", "bar")
+    );
+  });
+
+  test("calls new AesUtil(key).encrypt when provided key", () => {
+    const providedKey = Buffer.from("z".repeat(32));
+
+    expect(encryptValue("foo", undefined, providedKey)).toBe(
+      new AesUtil(providedKey).encrypt("foo")
+    );
+  });
+});
+
+describe("decryptValue", () => {
+  const aesUtil = new AesUtil();
+
+  beforeAll(() => {
+    const ivBytes = Buffer.from("a".repeat(12));
+    const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+  });
+
+  afterAll(() => jest.restoreAllMocks());
+
+  test("calls new AesUtil().decrypt(input) when no key", () => {
+    const output = new AesUtil().encrypt("foo");
+
+    expect(decryptValue(output)).toBe("foo");
+  });
+
+  test("calls new AesUtil().decrypt(input, associatedData) when assoc data", () => {
+    const output = new AesUtil().encrypt("foo", "bar");
+
+    expect(decryptValue(output, "bar")).toBe("foo");
+  });
+
+  test("calls new AesUtil(key).encrypt when provided key", () => {
+    const providedKey = Buffer.from("z".repeat(32));
+    const output = new AesUtil(providedKey).encrypt("foo");
+
+    expect(decryptValue(output, undefined, providedKey)).toBe("foo");
+  });
+});
+
+describe("AesUtil", () => {
+  const aesUtil = new AesUtil();
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test("decrypting encrypted output returns original input", () => {
+    expect(aesUtil.decrypt(aesUtil.encrypt("some secret"))).toBe("some secret");
+  });
+
+  describe("getIv", () => {
+    test("random IV generated", () =>
+      expect(AesUtil.getIv()).not.toBe(AesUtil.getIv()));
+  });
+
+  describe("constructor", () => {
+    test("AESUTIL_JS_AES_ENCRYPTION_KEY used if key not provided", () => {
+      const aesUtil = new AesUtil();
+      if (!process.env.AESUTIL_JS_AES_ENCRYPTION_KEY) throw Error();
+
+      const envKey = Buffer.from(
+        process.env.AESUTIL_JS_AES_ENCRYPTION_KEY,
+        "base64"
+      );
+
+      expect(aesUtil.key).toStrictEqual(envKey);
+    });
+
+    test("uses provided key", () => {
+      const providedKey = Buffer.from("b".repeat(32));
+
+      const aesUtil = new AesUtil(providedKey);
+      expect(aesUtil.key).toBe(providedKey);
+    });
+
+    test("decodes an encoded provided key", () => {
+      const providedKey = Buffer.from("b".repeat(32));
+      const providedEncodedKey = providedKey.toString("base64");
+
+      const aesUtil = new AesUtil(providedEncodedKey);
+      expect(aesUtil.key).toStrictEqual(providedKey);
+    });
+
+    test("throws if provided key string is not Base64-encoded", () => {
+      const providedKey = "!".repeat(32);
+
+      expect(() => new AesUtil(providedKey)).toThrowError(
+        Error("Key must be a Base64-encoded string")
+      );
+    });
+
+    test("throws if provided key string is invalid length", () => {
+      const providedKey = Buffer.from("b".repeat(42));
+      expect(() => new AesUtil(providedKey)).toThrowError(
+        Error("Key must be 32 bytes when Base64-decoded")
+      );
+    });
+  });
+
+  describe("encrypt", () => {
+    test("encrypts correctly using key", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const actual = aesUtil.encrypt("some secret");
       expect(actual).toBe(
         "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
       );
@@ -18,8 +131,9 @@ describe("aesutil.js Tests", () => {
 
     test("output is formatted correctly", () => {
       const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
 
-      const actual = encryptValue("hi", undefined, undefined, ivBytes);
+      const actual = aesUtil.encrypt("hi");
       const [ivString, authTagString, cipherTextString] = actual.split(".");
       expect(Buffer.from(ivString, "base64").toString()).toBe(
         ivBytes.toString()
@@ -28,195 +142,42 @@ describe("aesutil.js Tests", () => {
       expect(Buffer.from(cipherTextString, "base64")).toHaveLength(2);
     });
 
-    test("two ciphertexts differ with same inputs (diff IVs)", () => {
-      expect(encryptValue("some secret")).not.toBe(encryptValue("some secret"));
-    });
-
-    test("random IV generated if not provided", () => {
-      const firstEncodedIv = encryptValue("some secret").split(".")[0];
-      const secondEncodedIv = encryptValue("some secret").split(".")[0];
-      expect(firstEncodedIv).not.toBe(secondEncodedIv);
-    });
-
-    test("AESUTIL_JS_AES_ENCRYPTION_KEY used if key not provided", () => {
-      expect(() =>
-        decryptValue(
-          encryptValue("some secret"),
-          undefined,
-          process.env.AESUTIL_JS_AES_ENCRYPTION_KEY
-        )
-      ).not.toThrowError();
-    });
-
-    test("encrypts with a provided key", () => {
-      const providedKey = Buffer.from("b".repeat(32));
-
-      expect(() =>
-        decryptValue(
-          encryptValue("some secret", undefined, providedKey),
-          undefined,
-          providedKey
-        )
-      ).not.toThrowError();
-    });
-
-    test("encrypts with an encoded provided key", () => {
-      const providedKey = Buffer.from("b".repeat(32));
-      const providedEncodedKey = providedKey.toString("base64");
-
-      expect(() =>
-        decryptValue(
-          encryptValue("some secret", undefined, providedEncodedKey),
-          undefined,
-          providedKey
-        )
-      ).not.toThrowError();
-    });
-
-    test("throws if provided key string is not Base64-encoded", () => {
-      const providedKey = "!".repeat(32);
-
-      expect(() =>
-        encryptValue("some secret", undefined, providedKey)
-      ).toThrowError(Error("Key must be a Base64-encoded string"));
-    });
-
-    test("throws if provided key string is invalid length", () => {
-      const providedKey = Buffer.from("b".repeat(42));
-
-      expect(() =>
-        encryptValue("some secret", undefined, providedKey)
-      ).toThrowError(Error("Key must be 32 bytes when Base64-decoded"));
-    });
-
-    test("encrypts with an encoded IV", () => {
-      const ivBytes = Buffer.from("a".repeat(12));
-      const encodedIv = ivBytes.toString("base64");
-
-      expect(() =>
-        decryptValue(
-          encryptValue("some secret", undefined, undefined, encodedIv)
-        )
-      ).not.toThrowError();
-      expect(
-        encryptValue("some secret", undefined, undefined, encodedIv).split(
-          "."
-        )[0]
-      ).toBe(encodedIv);
-    });
-
-    test("throws if invalid IV length", () => {
-      const ivBytes = Buffer.from("a".repeat(24));
-
-      expect(() =>
-        encryptValue("some secret", undefined, undefined, ivBytes)
-      ).toThrowError(Error("Provided IV must be 12 bytes long"));
-    });
-
-    test("throws if IV string not Base64-encoded", () => {
-      const iv = "!".repeat(12);
-
-      expect(() =>
-        encryptValue("some secret", undefined, undefined, iv)
-      ).toThrowError(Error("Provided IV must be Base64-encoded if string"));
+    test("two ciphertexts differ with same inputs", () => {
+      expect(aesUtil.encrypt("some secret").split(".")[2]).not.toBe(
+        aesUtil.encrypt("some secret").split(".")[2]
+      );
     });
 
     test("encrypts with associated data", () => {
       const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
 
-      const actual = encryptValue(
-        "some secret",
-        "with assoc data",
-        undefined,
-        ivBytes
-      );
+      const actual = aesUtil.encrypt("some secret", "with assoc data");
       expect(actual).toMatch(
         "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY="
       );
     });
   });
 
-  describe("decryptValue", () => {
+  describe("aesUtil.decrypt", () => {
     test("decrypts correctly", () => {
-      const actual = decryptValue(
+      const actual = aesUtil.decrypt(
         "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
       );
       expect(actual).toBe("some secret");
     });
 
-    test("AESUTIL_JS_AES_ENCRYPTION_KEY used if key not provided", () => {
-      expect(() =>
-        decryptValue(
-          encryptValue(
-            "some secret",
-            undefined,
-            process.env.AESUTIL_JS_AES_ENCRYPTION_KEY
-          )
-        )
-      ).not.toThrowError();
-    });
-
-    test("decrypts with a provided key", () => {
-      const providedKey = Buffer.from("c".repeat(32));
-
-      const actual = decryptValue(
-        "SwzXVdv5Gb3czS77.nYS/fv33widGKqeWC0Ci9g==.OQZQK37REbbo4n8=",
-        undefined,
-        providedKey
-      );
-      expect(actual).toBe("some secret");
-    });
-
-    test("decrypts with an encoded provided key", () => {
-      const providedKey = Buffer.from("c".repeat(32));
-      const providedEncodedKey = providedKey.toString("base64");
-
-      const actual = decryptValue(
-        "SwzXVdv5Gb3czS77.nYS/fv33widGKqeWC0Ci9g==.OQZQK37REbbo4n8=",
-        undefined,
-        providedEncodedKey
-      );
-      expect(actual).toBe("some secret");
-    });
-
-    test("throws if provided key string is not Base64-encoded", () => {
-      const providedKey = "!".repeat(32);
-
-      expect(() =>
-        decryptValue(
-          "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY=",
-          undefined,
-          providedKey
-        )
-      ).toThrowError(Error("Key must be a Base64-encoded string"));
-    });
-
-    test("throws if provided key is invalid length", () => {
-      const providedKey = Buffer.from("a".repeat(24));
-
-      expect(() =>
-        decryptValue(
-          "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY=",
-          undefined,
-          providedKey
-        )
-      ).toThrowError(Error("Key must be 32 bytes when Base64-decoded"));
-    });
-
     test("throws if wrong key", () => {
-      const encKey = Buffer.from("b".repeat(32));
+      const otherEncKey = Buffer.from("b".repeat(32));
+      const otherAesUtil = new AesUtil(otherEncKey);
 
       expect(() =>
-        decryptValue(
-          "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY=",
-          undefined,
-          encKey
-        )
+        otherAesUtil.decrypt(aesUtil.encrypt("some secret"))
       ).toThrowError(Error("Unsupported state or unable to authenticate data"));
     });
 
     test("decrypts with associated data", () => {
-      const actual = decryptValue(
+      const actual = aesUtil.decrypt(
         "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY=",
         "with assoc data"
       );
@@ -225,7 +186,7 @@ describe("aesutil.js Tests", () => {
 
     test("throws if wrong associated data", () => {
       expect(() =>
-        decryptValue(
+        aesUtil.decrypt(
           "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY=",
           "differing data"
         )

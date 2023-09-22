@@ -26,9 +26,9 @@ AESUTIL_JS_AES_ENCRYPTION_KEY="uQDJyFHpG7qKPZgGhC/74eIWx/ItMof+T00Tho2Cam8="
 
 ## Usage
 
-Very simple.
+Very simple. You can use the simple functional methods, or the class for more configurability:
 
-Encryption:
+### Encryption:
 
 ```ts
 import { encryptValue } from "@f3ndot/aesutil";
@@ -39,7 +39,30 @@ const encryptedDataForDb = encryptValue("some sensitive plaintext");
 storeToDb(encryptedDataForDb);
 ```
 
-Decryption:
+Or alternatively use the class:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const aesUtil = new AesUtil();
+const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+// => 'Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX'
+```
+
+If you want to provide a different key, or not want to use/set the environment variable:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encodedEncKey = "vLPSzkuV7rprQUGJdUGcuB+bx/rNX+a0QfZPSuiFdxY=";
+const aesUtil = new AesUtil(encodedEncKey); // Assumes a string is Base64-encoded key
+const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+
+const encKey = Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+const aesUtil = new AesUtil(encKey); // Accepts raw key bytes as a Buffer
+```
+
+### Decryption:
 
 ```ts
 import { decryptValue } from "@f3ndot/aesutil";
@@ -47,6 +70,17 @@ import { decryptValue } from "@f3ndot/aesutil";
 const encryptedDataFromDb =
   "Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX";
 const plaintext = decryptValue(encryptedDataFromDb); // => 'some sensitive plaintext'
+```
+
+Or alternatively, yet again:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encryptedDataFromDb =
+  "Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX";
+const aesUtil = new AesUtil(); // Can also be passed the key, Base64-encoded or not
+const plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive plaintext'
 ```
 
 ### Associated Data / AAD / AEAD
