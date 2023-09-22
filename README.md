@@ -24,11 +24,13 @@ Save that in your env whichever way you like, for example a `.env` file if your 
 AESUTIL_JS_AES_ENCRYPTION_KEY="uQDJyFHpG7qKPZgGhC/74eIWx/ItMof+T00Tho2Cam8="
 ```
 
+Alternatively you don't have to set an environment variable and always pass in a key using the `AesUtil` approach described in Usage.
+
 ## Usage
 
-Very simple.
+Very simple. You can use the simple functional methods, or the class for more configurability:
 
-Encryption:
+#### Encryption:
 
 ```ts
 import { encryptValue } from "@f3ndot/aesutil";
@@ -39,7 +41,30 @@ const encryptedDataForDb = encryptValue("some sensitive plaintext");
 storeToDb(encryptedDataForDb);
 ```
 
-Decryption:
+Or alternatively use the class:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const aesUtil = new AesUtil();
+const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+// => 'Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX'
+```
+
+If you want to provide a different key, or not want to use/set the environment variable:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encodedEncKey = "vLPSzkuV7rprQUGJdUGcuB+bx/rNX+a0QfZPSuiFdxY=";
+const aesUtil = new AesUtil(encodedEncKey); // Assumes a string is Base64-encoded key
+const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+
+const encKey = Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+const aesUtil = new AesUtil(encKey); // Accepts raw key bytes as a Buffer
+```
+
+#### Decryption:
 
 ```ts
 import { decryptValue } from "@f3ndot/aesutil";
@@ -49,11 +74,22 @@ const encryptedDataFromDb =
 const plaintext = decryptValue(encryptedDataFromDb); // => 'some sensitive plaintext'
 ```
 
+Or alternatively, yet again:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encryptedDataFromDb =
+  "Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX";
+const aesUtil = new AesUtil(); // Can also be passed the key, Base64-encoded or not
+const plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive plaintext'
+```
+
 ### Associated Data / AAD / AEAD
 
 Since AES-256-GCM is used, you can optionally supply associated data to tie to the ciphertext. This is particularly useful in a database context where a given ciphertext may belong to only one row. Associated Data would prevent ciphertext reuse.
 
-Encryption:
+#### Encryption:
 
 ```ts
 import { encryptValue } from "@f3ndot/aesutil";
@@ -64,7 +100,17 @@ const encryptedDataForDb = encryptValue("some medical history", "user-id-1");
 updateUserMedicalFile("user-id-1", encryptedDataForDb);
 ```
 
-Decryption:
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const aesUtil = new AesUtil();
+const encryptedDataForDb = aesUtil.encrypt("some medical history", "user-id-1");
+// => '4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM='
+
+updateUserMedicalFile("user-id-1", encryptedDataForDb);
+```
+
+#### Decryption:
 
 ```ts
 import { decryptValue } from "@f3ndot/aesutil";
@@ -73,8 +119,18 @@ const encryptedDataForUser1FromDb =
   "4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM=";
 
 const user1History = decryptValue(encryptedDataForUser1FromDb, "user-id-1"); // => 'some medical history'
-
 const user2History = decryptValue(encryptedDataForUser1FromDb, "user-id-2"); // => Throws an error
+```
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encryptedDataForUser1FromDb =
+  "4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM=";
+
+const aesUtil = new AesUtil();
+const user1History = aesUtil.decrypt(encryptedDataForUser1FromDb, "user-id-1"); // => 'some medical history'
+const user2History = aesUtil.decrypt(encryptedDataForUser1FromDb, "user-id-2"); // => Throws an error
 ```
 
 ## Opinionated Decision Rationale
