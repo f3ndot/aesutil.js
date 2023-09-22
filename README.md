@@ -153,6 +153,8 @@ Since the ciphertext, its IV, and auth tag are all encoded as Base64 strings smu
 
 And while SQL databases have the `BINARY` type, the additional overhead for storing the string as `TEXT` is small and consistency makes developer error less likely. Ditto for storing IV and auth tag alongside. While those could be stored in separate `BINARY` columns, it's just more work.
 
+Ultimately there's `new AesUtil({ binaryMode: true })` now for those who want it, but the default shall remain the portable string version.
+
 ### Why AES-256-GCM?
 
 - **AES:** A widely accepted standard algorithm that has stood the test of time and is fast
