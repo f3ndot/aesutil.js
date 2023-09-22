@@ -1,6 +1,6 @@
 {
   "name": "@f3ndot/aesutil",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An opinionated NodeJS convenience library for AES-256-GCM Encryption/Decryption with optional Additional Data (AAD/AEAD) in a portable way",
   "repository": {
     "type": "git",
