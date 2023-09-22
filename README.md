@@ -24,7 +24,35 @@ Save that in your env whichever way you like, for example a `.env` file if your 
 AESUTIL_JS_AES_ENCRYPTION_KEY="uQDJyFHpG7qKPZgGhC/74eIWx/ItMof+T00Tho2Cam8="
 ```
 
-Alternatively you don't have to set an environment variable and always pass in a key using the `AesUtil` approach described in Usage.
+That's all that's required to get started
+
+### Using the `AesUtil()` class
+
+For those who want additional configurable control, you can use `AesUtil()` instead of the two simple convenience functions described in [Usage](#usage). All parameters are optional and the defaults are shown below:
+
+```ts
+const aesUtil = new AesUtil({
+  // encryption key to use as a Base64-encoded string or the raw Buffer bytes.
+  // Always use to avoid needing to set the ENV VAR on your system
+  providedKey: undefined,
+
+  // the encrypted output string is not encoded in Base64 and instead returns
+  // the raw bytes in a string. Handy for `BINARY` DB column or file
+  // destinations
+  binaryMode: false,
+
+  // for when the supplied input string is in an encoding other than utf8 like
+  // latin-1, ascii, hex, or even binary
+  plaintextEncoding: "utf8",
+});
+```
+
+If you just want to pass the key, the constructor supports that:
+
+```ts
+const encodedEncKey = "vLPSzkuV7rprQUGJdUGcuB+bx/rNX+a0QfZPSuiFdxY=";
+const aesUtil = new AesUtil(encodedEncKey); // Can also be a Buffer containing the 32-byte unencoded key
+```
 
 ## Usage
 
@@ -41,27 +69,22 @@ const encryptedDataForDb = encryptValue("some sensitive plaintext");
 storeToDb(encryptedDataForDb);
 ```
 
-Or alternatively use the class:
+Or if using the class alternative:
 
 ```ts
 import { AesUtil } from "@f3ndot/aesutil";
 
-const aesUtil = new AesUtil();
-const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+let aesUtil = new AesUtil();
+let encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
 // => 'Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX'
-```
 
-If you want to provide a different key, or not want to use/set the environment variable:
+aesUtil = new AesUtil({ binaryMode: true });
+encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+// => '\bPR\x1F\x9BâÓ\x99\x10/\x93,QN_\x16\x98`½\b\x85ûèa\x02ì¼\x160[Öázª>\x14¾\x88!x8\x91 \x02\x03«Úþ ¹Xó'
 
-```ts
-import { AesUtil } from "@f3ndot/aesutil";
-
-const encodedEncKey = "vLPSzkuV7rprQUGJdUGcuB+bx/rNX+a0QfZPSuiFdxY=";
-const aesUtil = new AesUtil(encodedEncKey); // Assumes a string is Base64-encoded key
-const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
-
-const encKey = Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-const aesUtil = new AesUtil(encKey); // Accepts raw key bytes as a Buffer
+aesUtil = new AesUtil({ plaintextEncoding: "hex" });
+encryptedDataForDb = aesUtil.encrypt("414141"); // will efficiently be stored as 3 "a" bytes (before Base64-encoding) as a result
+// => 'YWFhYWFhYWFhYWFh.1b42zgCE1hBUVAQ2y1c4fg==.f7y/'
 ```
 
 #### Decryption:
@@ -79,10 +102,19 @@ Or alternatively, yet again:
 ```ts
 import { AesUtil } from "@f3ndot/aesutil";
 
-const encryptedDataFromDb =
+let encryptedDataFromDb =
   "Am4ubpry3kg3BDDK.qWgj/gOHyV9pv5U/RZ6Rzw==.WOF0+fh4hnRi7IqyUKqU15u/5nyPspvX";
-const aesUtil = new AesUtil(); // Can also be passed the key, Base64-encoded or not
-const plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive plaintext'
+let aesUtil = new AesUtil(); // Can also be passed the key, Base64-encoded or not
+let plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive plaintext'
+
+encryptedDataFromDb =
+  "\bPR\x1F\x9BâÓ\x99\x10/\x93,QN_\x16\x98`½\b\x85ûèa\x02ì¼\x160[Öázª>\x14¾\x88!x8\x91 \x02\x03«Úþ ¹Xó";
+aesUtil = new AesUtil({ binaryMode: true });
+plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive plaintext'
+
+encryptedDataFromDb = "YWFhYWFhYWFhYWFh.1b42zgCE1hBUVAQ2y1c4fg==.f7y/";
+aesUtil = new AesUtil({ plaintextEncoding: "hex" });
+plaintext = aesUtil.decrypt(encryptedDataFromDb); // => '414141'
 ```
 
 ### Associated Data / AAD / AEAD
@@ -140,6 +172,8 @@ const user2History = aesUtil.decrypt(encryptedDataForUser1FromDb, "user-id-2"); 
 Since the ciphertext, its IV, and auth tag are all encoded as Base64 strings smushed together, the resulting string is very portable and versatile. It can reasonably be copied around and transported anywhere. This can be useful in situations where binary data/non-ASCII characters would get mangled. Hex encoding could've been chosen and accomplishes the same job, but it takes up more characters.
 
 And while SQL databases have the `BINARY` type, the additional overhead for storing the string as `TEXT` is small and consistency makes developer error less likely. Ditto for storing IV and auth tag alongside. While those could be stored in separate `BINARY` columns, it's just more work.
+
+Ultimately there's `new AesUtil({ binaryMode: true })` now for those who want it, but the default shall remain the portable string version.
 
 ### Why AES-256-GCM?
 

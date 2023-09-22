@@ -116,6 +116,19 @@ describe("AesUtil", () => {
         Error("Key must be 32 bytes when Base64-decoded")
       );
     });
+
+    test("accepts IAesUtility params instead", () => {
+      const providedKey = Buffer.from("b".repeat(32));
+
+      const aesUtil = new AesUtil({
+        binaryMode: true,
+        providedKey,
+        plaintextEncoding: "ascii",
+      });
+      expect(aesUtil.key).toBe(providedKey);
+      expect(aesUtil.binaryMode).toBe(true);
+      expect(aesUtil.plaintextEncoding).toBe("ascii");
+    });
   });
 
   describe("encrypt", () => {
@@ -127,6 +140,15 @@ describe("AesUtil", () => {
       expect(actual).toBe(
         "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
       );
+    });
+
+    test("encrypts with different plaintext encoding", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const aesUtil = new AesUtil({ plaintextEncoding: "hex" });
+      const actual = aesUtil.encrypt("414141");
+      expect(actual).toBe("YWFhYWFhYWFhYWFh.1b42zgCE1hBUVAQ2y1c4fg==.f7y/");
     });
 
     test("output is formatted correctly", () => {
@@ -157,6 +179,21 @@ describe("AesUtil", () => {
         "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY="
       );
     });
+
+    test("encrypts in binary mode", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const aesUtil = new AesUtil({ binaryMode: true });
+      const actual = aesUtil.encrypt("abc");
+      expect(actual).toMatch(
+        Buffer.concat([
+          Buffer.from("aaaaaaaaaaaa"),
+          Buffer.from("413b0cee54c41340d3835ab09a834066", "hex"),
+          Buffer.from("5f9f9d", "hex"),
+        ]).toString("binary")
+      );
+    });
   });
 
   describe("aesUtil.decrypt", () => {
@@ -165,6 +202,14 @@ describe("AesUtil", () => {
         "YWFhYWFhYWFhYWFh.8ZNQ2vxyxHKb5cGsryyFcQ==.TZKT/9YESrE8aQY="
       );
       expect(actual).toBe("some secret");
+    });
+
+    test("decrypts with different plaintext encoding", () => {
+      const aesUtil = new AesUtil({ plaintextEncoding: "hex" });
+      const actual = aesUtil.decrypt(
+        "YWFhYWFhYWFhYWFh.1b42zgCE1hBUVAQ2y1c4fg==.f7y/"
+      );
+      expect(actual).toBe("414141");
     });
 
     test("throws if wrong key", () => {
@@ -191,6 +236,21 @@ describe("AesUtil", () => {
           "differing data"
         )
       ).toThrowError(Error("Unsupported state or unable to authenticate data"));
+    });
+
+    test("decrypts in binary mode", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const aesUtil = new AesUtil({ binaryMode: true });
+      const actual = aesUtil.decrypt(
+        Buffer.concat([
+          Buffer.from("aaaaaaaaaaaa"),
+          Buffer.from("413b0cee54c41340d3835ab09a834066", "hex"),
+          Buffer.from("5f9f9d", "hex"),
+        ]).toString("binary")
+      );
+      expect(actual).toMatch("abc");
     });
   });
 });

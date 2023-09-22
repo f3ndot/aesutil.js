@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { CiphertextParts } from "./types";
+import type { ICiphertextParts, IAesUtilParams } from "./types";
 
 export const IV_BYTE_LEN = 12; // per NIST 800-38D
 export const AESUTIL_JS_AES_ENCRYPTION_KEY =
@@ -39,11 +39,23 @@ export class AesUtil {
   readonly algorithm = "aes-256-gcm";
 
   readonly key: Buffer;
+  readonly binaryMode: boolean = false;
+  readonly plaintextEncoding: BufferEncoding = "utf8";
 
   constructor();
   constructor(providedKey: string | Buffer);
-  constructor(providedKey?: string | Buffer) {
-    this.key = getCipherKey(providedKey);
+  constructor(params: IAesUtilParams);
+  constructor(arg?: string | Buffer | IAesUtilParams) {
+    // check if `arg` is `providedKey` or empty constructor
+    if (arg instanceof Buffer || typeof arg === "string" || arg === undefined) {
+      this.key = getCipherKey(arg);
+      return;
+    }
+
+    // `arg` is now `params`
+    this.key = getCipherKey(arg.providedKey);
+    if (arg.binaryMode) this.binaryMode = arg.binaryMode;
+    if (arg.plaintextEncoding) this.plaintextEncoding = arg.plaintextEncoding;
   }
 
   static getIv(): Buffer {
@@ -64,7 +76,7 @@ export class AesUtil {
       cipher.setAAD(Buffer.from(associatedData));
     }
     const ciphertext = Buffer.concat([
-      cipher.update(plaintext, "utf8"),
+      cipher.update(plaintext, this.plaintextEncoding),
       cipher.final(),
     ]);
     const authTag = cipher.getAuthTag();
@@ -90,18 +102,33 @@ export class AesUtil {
       decipher.setAAD(Buffer.from(associatedData));
     }
     return (
-      decipher.update(parts.ciphertext, undefined, "utf8") +
-      decipher.final("utf8")
+      decipher.update(parts.ciphertext, undefined, this.plaintextEncoding) +
+      decipher.final(this.plaintextEncoding)
     );
   }
 
-  private encodeOutput(parts: CiphertextParts): string {
-    return `${parts.iv.toString("base64")}.${parts.authTag.toString(
-      "base64"
-    )}.${parts.ciphertext.toString("base64")}`;
+  private encodeOutput(parts: ICiphertextParts): string {
+    const orderedParts = [parts.iv, parts.authTag, parts.ciphertext];
+
+    return this.binaryMode
+      ? Buffer.concat(orderedParts).toString("binary")
+      : orderedParts.map((part) => part.toString("base64")).join(".");
   }
 
-  private decodeInput(encrypted: string): CiphertextParts {
+  private decodeInput(encrypted: string): ICiphertextParts {
+    if (this.binaryMode) {
+      const encryptedBytes = Buffer.from(encrypted, "binary");
+      // Assumes future versions will never deviate from using 12-byte IV and
+      // gold-standard 16-byte auth tag. If so, wasteful fallback attempts will
+      // have to be made. Could've added a custom header describing part
+      // locations but meh
+      return {
+        iv: encryptedBytes.subarray(0, IV_BYTE_LEN),
+        authTag: encryptedBytes.subarray(IV_BYTE_LEN, IV_BYTE_LEN + 16),
+        ciphertext: encryptedBytes.subarray(IV_BYTE_LEN + 16),
+      };
+    }
+
     const [ivString, authTagString, ciphertextString] = encrypted.split(".");
     const iv = Buffer.from(ivString, "base64");
     const authTag = Buffer.from(authTagString, "base64");
