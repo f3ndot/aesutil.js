@@ -28,7 +28,7 @@ AESUTIL_JS_AES_ENCRYPTION_KEY="uQDJyFHpG7qKPZgGhC/74eIWx/ItMof+T00Tho2Cam8="
 
 Very simple. You can use the simple functional methods, or the class for more configurability:
 
-### Encryption:
+#### Encryption:
 
 ```ts
 import { encryptValue } from "@f3ndot/aesutil";
@@ -62,7 +62,7 @@ const encKey = Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 const aesUtil = new AesUtil(encKey); // Accepts raw key bytes as a Buffer
 ```
 
-### Decryption:
+#### Decryption:
 
 ```ts
 import { decryptValue } from "@f3ndot/aesutil";
@@ -87,7 +87,7 @@ const plaintext = aesUtil.decrypt(encryptedDataFromDb); // => 'some sensitive pl
 
 Since AES-256-GCM is used, you can optionally supply associated data to tie to the ciphertext. This is particularly useful in a database context where a given ciphertext may belong to only one row. Associated Data would prevent ciphertext reuse.
 
-Encryption:
+#### Encryption:
 
 ```ts
 import { encryptValue } from "@f3ndot/aesutil";
@@ -98,7 +98,17 @@ const encryptedDataForDb = encryptValue("some medical history", "user-id-1");
 updateUserMedicalFile("user-id-1", encryptedDataForDb);
 ```
 
-Decryption:
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const aesUtil = new AesUtil();
+const encryptedDataForDb = aesUtil.encrypt("some medical history", "user-id-1");
+// => '4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM='
+
+updateUserMedicalFile("user-id-1", encryptedDataForDb);
+```
+
+#### Decryption:
 
 ```ts
 import { decryptValue } from "@f3ndot/aesutil";
@@ -107,8 +117,18 @@ const encryptedDataForUser1FromDb =
   "4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM=";
 
 const user1History = decryptValue(encryptedDataForUser1FromDb, "user-id-1"); // => 'some medical history'
-
 const user2History = decryptValue(encryptedDataForUser1FromDb, "user-id-2"); // => Throws an error
+```
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const encryptedDataForUser1FromDb =
+  "4G4slwTqQpz3MYUf.vfgpx8urncMXtFCD+xJAKw==.fgyJEpyTr26PBknvHe3VYSeX8xM=";
+
+const aesUtil = new AesUtil();
+const user1History = aesUtil.decrypt(encryptedDataForUser1FromDb, "user-id-1"); // => 'some medical history'
+const user2History = aesUtil.decrypt(encryptedDataForUser1FromDb, "user-id-2"); // => Throws an error
 ```
 
 ## Opinionated Decision Rationale
