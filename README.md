@@ -64,6 +64,18 @@ const encKey = Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 const aesUtil = new AesUtil(encKey); // Accepts raw key bytes as a Buffer
 ```
 
+If you're storing to disk or in a DB with a `BINARY` column and you know you don't need an encoded output for portability, there is a binary mode available if you want the space savings:
+
+```ts
+import { AesUtil } from "@f3ndot/aesutil";
+
+const aesUtil = new AesUtil({ binaryMode: true });
+const encryptedDataForDb = aesUtil.encrypt("some sensitive plaintext");
+// => '\bPR\x1F\x9BâÓ\x99\x10/\x93,QN_\x16\x98`½\b\x85ûèa\x02ì¼\x160[Öázª>\x14¾\x88!x8\x91 \x02\x03«Úþ ¹Xó'
+```
+
+Make sure you also turn on binary mode for the subsequent decryption.
+
 #### Decryption:
 
 ```ts

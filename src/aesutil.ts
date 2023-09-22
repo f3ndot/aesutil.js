@@ -118,6 +118,10 @@ export class AesUtil {
   private decodeInput(encrypted: string): ICiphertextParts {
     if (this.binaryMode) {
       const encryptedBytes = Buffer.from(encrypted, "binary");
+      // Assumes future versions will never deviate from using 12-byte IV and
+      // gold-standard 16-byte auth tag. If so, wasteful fallback attempts will
+      // have to be made. Could've added a custom header describing part
+      // locations but meh
       return {
         iv: encryptedBytes.subarray(0, IV_BYTE_LEN),
         authTag: encryptedBytes.subarray(IV_BYTE_LEN, IV_BYTE_LEN + 16),
