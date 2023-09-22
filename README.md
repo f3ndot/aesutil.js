@@ -7,7 +7,7 @@ Meant for ciphertext storage outside the running environment, such as in a datab
 ## Install
 
 ```bash
-yarn add @f3ndot/aesutil.js
+yarn add @f3ndot/aesutil
 ```
 
 ## Configuration
@@ -195,7 +195,24 @@ Side-steps the whole debate on what best Password-Based Key Derivation function 
 
 Things going slowly is a desireable property for _hashing_ (commonly misnomered as _encrypting_) passwords, where the plaintext no longer needs to be known, and verifying/authenticating should be slowed to stymie brute-force attackers.
 
-Conversely, adding an encryption layer for security at rest or transport in untrusted environments should not bog down your application/system.
+Conversely, adding an encryption layer for security at rest or transport in untrusted environments should not bog down your application/system. This library is intending to solve that problem.
+
+However, if you intentionally want your encryption layer to be slowed down, such as when you're encrypting data with user-supplied passwords, then you can implement that outside of the library and pass the resulting key in. Example:
+
+```ts
+// Example where the library is used as part of user password-encrypted
+import crypto from "crypto";
+import { AesUtil } from "@f3ndot/aesutil";
+
+// It's up to *YOU* to decide how to derive the key, with what algorithms, costs, and settings. Here's an example:
+const derivedKey = crypto.scryptSync(
+  "some user-supplied password",
+  "some salt",
+  32
+);
+const aesUtil = new AesUtil(derivedKey);
+aesUtil.encrypt("...");
+```
 
 ### Why bother using Associated Data when storing in DB rows?
 
