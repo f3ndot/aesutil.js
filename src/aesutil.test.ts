@@ -157,6 +157,21 @@ describe("AesUtil", () => {
         "YWFhYWFhYWFhYWFh.52PQH34HGt7cOGDmMxiTDA==.TZKT/9YESrE8aQY="
       );
     });
+
+    test("encrypts in binary mode", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const aesUtil = new AesUtil({ binaryMode: true });
+      const actual = aesUtil.encrypt("abc");
+      expect(actual).toMatch(
+        Buffer.concat([
+          Buffer.from("aaaaaaaaaaaa"),
+          Buffer.from("413b0cee54c41340d3835ab09a834066", "hex"),
+          Buffer.from("5f9f9d", "hex"),
+        ]).toString("binary")
+      );
+    });
   });
 
   describe("aesUtil.decrypt", () => {
@@ -191,6 +206,21 @@ describe("AesUtil", () => {
           "differing data"
         )
       ).toThrowError(Error("Unsupported state or unable to authenticate data"));
+    });
+
+    test("decrypts in binary mode", () => {
+      const ivBytes = Buffer.from("a".repeat(12));
+      const spy = jest.spyOn(AesUtil, "getIv").mockReturnValue(ivBytes);
+
+      const aesUtil = new AesUtil({ binaryMode: true });
+      const actual = aesUtil.decrypt(
+        Buffer.concat([
+          Buffer.from("aaaaaaaaaaaa"),
+          Buffer.from("413b0cee54c41340d3835ab09a834066", "hex"),
+          Buffer.from("5f9f9d", "hex"),
+        ]).toString("binary")
+      );
+      expect(actual).toMatch("abc");
     });
   });
 });
